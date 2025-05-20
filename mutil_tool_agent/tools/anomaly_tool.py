@@ -17,13 +17,17 @@ class AnomalyTools:
     def __init__(self, db_connection: mysql.connector.MySQLConnection, 
                  flatline_duration_hours: float = 5.0,  # Duration in hours
                  gap_duration_hours: float = 1.0,       # Duration in hours
-                 change_threshold: float = 3.0):        # Standard deviations for sudden changes
+                 change_threshold: float = 3.0,         # Standard deviations for sudden changes
+                 spike_duration_hours: float = 1.0,     # Duration for spike detection
+                 blockage_duration_hours: float = 3.0): # Duration for blockage detection
         self.db = db_connection
         self.cursor = self.db.cursor(dictionary=True)
         self.sensor_limits = self._fetch_sensor_limits()
         # Convert hours to number of 15-minute readings
         self.flatline_threshold = int(flatline_duration_hours * 4)  # 4 readings per hour
         self.gap_threshold = int(gap_duration_hours * 4)            # 4 readings per hour
+        self.spike_threshold = int(spike_duration_hours * 4)        # 4 readings per hour
+        self.blockage_threshold = int(blockage_duration_hours * 4)  # 4 readings per hour
         self.change_threshold = change_threshold
 
     def _fetch_sensor_limits(self) -> Dict[str, Dict[str, float]]:
@@ -126,7 +130,7 @@ class AnomalyTools:
                 if not negative_values.empty:
                     anomalies[f"{sensor_id}_negative"] = negative_values
                 
-                # 2. Check for flat lines
+                # 2. Check for flat lines with duration
                 sensor_data['timestamp'] = pd.to_datetime(sensor_data['timestamp'])
                 sensor_data['value_diff'] = sensor_data['value'].diff().abs()
                 flat_line = sensor_data['value_diff'] == 0
@@ -140,7 +144,7 @@ class AnomalyTools:
                     )
                     anomalies[f"{sensor_id}_flat_line"] = flat_line_anomalies
                 
-                # 3. Check for gaps
+                # 3. Check for gaps with duration
                 time_diffs = sensor_data['timestamp'].diff()
                 expected_interval = timedelta(minutes=15)  # Assuming 15-minute intervals
                 gaps = time_diffs > (expected_interval * self.gap_threshold)
@@ -149,73 +153,102 @@ class AnomalyTools:
                     gap_anomalies['gap_duration_hours'] = time_diffs[gaps].dt.total_seconds() / 3600
                     anomalies[f"{sensor_id}_gaps"] = gap_anomalies
                 
-                # 4. Check for sudden changes
+                # 4. Check for sudden changes with duration
                 if len(sensor_data) > 1:
+                    # --- NEW: Calculate normal range from dry weather periods ---
+                    try:
+                        rain_query = "SELECT timestamp, value FROM sensor_data WHERE sensor_id = '15_3'"
+                        self.cursor.execute(rain_query)
+                        rain_data = pd.DataFrame(self.cursor.fetchall())
+                        rain_data['timestamp'] = pd.to_datetime(rain_data['timestamp'])
+                        # Identify dry weather periods (no rain for at least 24 hours)
+                        rain_data['is_rain'] = rain_data['value'] > 0.01  # Dry weather threshold
+                        rain_data['dry_period'] = (~rain_data['is_rain']).astype(int)
+                        rain_data['dry_period_group'] = (rain_data['dry_period'] != rain_data['dry_period'].shift()).cumsum()
+                        dry_periods = rain_data.groupby('dry_period_group').agg({
+                            'timestamp': ['min', 'max'],
+                            'dry_period': 'first'
+                        })
+                        dry_periods.columns = ['start_time', 'end_time', 'is_dry']
+                        dry_periods['duration'] = (dry_periods['end_time'] - dry_periods['start_time']).dt.total_seconds() / 3600
+                        long_dry_periods = dry_periods[(dry_periods['is_dry'] == 1) & (dry_periods['duration'] >= 24)]
+                        dry_weather_data = pd.DataFrame()
+                        for _, period in long_dry_periods.iterrows():
+                            period_data = sensor_data[(sensor_data['timestamp'] >= period['start_time']) & (sensor_data['timestamp'] <= period['end_time'])]
+                            dry_weather_data = pd.concat([dry_weather_data, period_data])
+                        if not dry_weather_data.empty:
+                            normal_mean = dry_weather_data['value'].mean()
+                            normal_std = dry_weather_data['value'].std()
+                            normal_lower = normal_mean - 2 * normal_std
+                            normal_upper = normal_mean + 2 * normal_std
+                        else:
+                            # Fallback to sensor limits if no dry weather data available
+                            sensor_limits = self.sensor_limits.get(sensor_id, {})
+                            normal_lower = sensor_limits.get('lower', float('-inf'))
+                            normal_upper = sensor_limits.get('upper', float('inf'))
+                    except Exception as e:
+                        # Fallback to sensor limits
+                        sensor_limits = self.sensor_limits.get(sensor_id, {})
+                        normal_lower = sensor_limits.get('lower', float('-inf'))
+                        normal_upper = sensor_limits.get('upper', float('inf'))
                     # Calculate rate of change
                     sensor_data['rate_of_change'] = sensor_data['value'].diff()
                     mean_change = sensor_data['rate_of_change'].mean()
                     std_change = sensor_data['rate_of_change'].std()
-                    
-                    # Detect sudden rises and drops with absolute threshold
                     min_significant_change = 0.1  # Minimum change to be considered significant
-                    sudden_rise = sensor_data[
-                        (sensor_data['rate_of_change'] > (mean_change + self.change_threshold * std_change)) &
-                        (sensor_data['rate_of_change'] > min_significant_change)
-                    ]
-                    sudden_drop = sensor_data[
-                        (sensor_data['rate_of_change'] < (mean_change - self.change_threshold * std_change)) &
-                        (sensor_data['rate_of_change'] < -min_significant_change)
-                    ]
-                    
-                    # Filter out changes that correlate with rain events
-                    if has_rain_data:
-                        def is_rain_correlated(timestamp, window=timedelta(hours=2)):
-                            rain_window = rain_data[
-                                (rain_data['timestamp'] >= timestamp - window) & 
-                                (rain_data['timestamp'] <= timestamp + window)  # Check both before and after
-                            ]
-                            return rain_window['value'].max() > 0.1  # Significant rain threshold
-                        
-                        # Filter rises
-                        valid_rises = sudden_rise[~sudden_rise['timestamp'].apply(is_rain_correlated)]
-                        if not valid_rises.empty:
-                            anomalies[f"{sensor_id}_sudden_rise"] = valid_rises
-                        
-                        # Filter drops
-                        valid_drops = sudden_drop[~sudden_drop['timestamp'].apply(is_rain_correlated)]
-                        if not valid_drops.empty:
-                            anomalies[f"{sensor_id}_sudden_drop"] = valid_drops
-                    else:
-                        if not sudden_rise.empty:
-                            anomalies[f"{sensor_id}_sudden_rise"] = sudden_rise
-                        if not sudden_drop.empty:
-                            anomalies[f"{sensor_id}_sudden_drop"] = sudden_drop
-                
-                # 5. Special check for depth sensor blockage
-                if sensor_type == 'Depth':
-                    # Blockage is defined as a sudden rise followed by a flat line lasting more than 3 hours
-                    # Use the sudden_rise detection we already have
-                    if 'sudden_rise' in anomalies:
-                        sudden_rises = anomalies['sudden_rise']
-                        
-                        # For each sudden rise, check if it's followed by a flat line
-                        blockage_candidates = []
-                        for idx in sudden_rises.index:
-                            # Get the next 3 hours of data
-                            next_3_hours = sensor_data.loc[idx:].head(12)  # Assuming 15-min intervals
+                    # Only report the first out-of-normal event (spike or negative spike) in the entire dataset, ignore all others
+                    spike_indices = []
+                    negative_spike_indices = []
+                    found_anomaly = False
+                    anomaly_type = None
+                    for idx, row in sensor_data.iterrows():
+                        if found_anomaly:
+                            break
+                        val = row['value']
+                        roc = row['rate_of_change']
+                        if val > normal_upper and roc > min_significant_change:
+                            spike_indices.append(idx)
+                            found_anomaly = True
+                            anomaly_type = 'spike'
+                        elif val < normal_lower and roc < -min_significant_change:
+                            negative_spike_indices.append(idx)
+                            found_anomaly = True
+                            anomaly_type = 'negative_spike'
+                    if anomaly_type == 'spike' and spike_indices:
+                        spike = sensor_data.loc[spike_indices].copy()
+                        spike['duration_hours'] = self.spike_threshold / 4
+                        anomalies[f"{sensor_id}_spike"] = spike
+                    elif anomaly_type == 'negative_spike' and negative_spike_indices:
+                        negative_spike = sensor_data.loc[negative_spike_indices].copy()
+                        negative_spike['duration_hours'] = self.spike_threshold / 4
+                        anomalies[f"{sensor_id}_negative_spike"] = negative_spike
+
+                    # 5. Special check for depth sensor blockage with duration
+                    if sensor_type == 'Depth':
+                        # Blockage is defined as a spike followed by a flat line lasting more than blockage_threshold
+                        if 'spike' in anomalies or 'negative_spike' in anomalies:
+                            spikes = anomalies[f"{sensor_id}_spike"] if 'spike' in anomalies else anomalies[f"{sensor_id}_negative_spike"]
                             
-                            # Check if the line is flat (all value_diffs are close to 0)
-                            if len(next_3_hours) >= 12 and all(abs(diff) < 0.01 for diff in next_3_hours['value_diff']):
-                                blockage_candidates.append(idx)
-                        
-                        blockage_candidates = sensor_data.loc[blockage_candidates]
-                        if not blockage_candidates.empty:
-                            anomalies[f"{sensor_id}_potential_blockage"] = blockage_candidates
+                            # For each spike, check if it's followed by a flat line
+                            blockage_candidates = []
+                            for idx in spikes.index:
+                                # Get the next blockage_threshold hours of data
+                                next_hours = sensor_data.loc[idx:].head(self.blockage_threshold)
+                                
+                                # Check if the line is flat (all value_diffs are close to 0)
+                                if len(next_hours) >= self.blockage_threshold and all(abs(diff) < 0.01 for diff in next_hours['value_diff']):
+                                    blockage_candidates.append(idx)
+                            
+                            blockage_candidates = sensor_data.loc[blockage_candidates]
+                            if not blockage_candidates.empty:
+                                blockage_candidates['duration_hours'] = self.blockage_threshold / 4  # Convert readings to hours
+                                anomalies[f"{sensor_id}_potential_blockage"] = blockage_candidates
 
             elif sensor_type == 'Rain Gauge':
-                # Check for unrealistic rainfall
+                # Check for unrealistic rainfall with duration
                 unrealistic_rain = sensor_data[sensor_data['value'] > 250]  # More than 250mm/day
                 if not unrealistic_rain.empty:
+                    unrealistic_rain['duration_hours'] = 1.0  # Assuming 1-hour duration for unrealistic rain
                     anomalies[f"{sensor_id}_unrealistic_rain"] = unrealistic_rain
 
         return anomalies
@@ -230,7 +263,7 @@ class AnomalyTools:
         rain_data = data[data['sensor_id'].str.contains('rain', case=False)]
         
         if not rain_data.empty:
-            # Define rainfall events
+            # Define rainfall events with duration
             rain_data['timestamp'] = pd.to_datetime(rain_data['timestamp'])
             rain_data['is_rain'] = rain_data['value'] > 0.01  # Dry weather threshold
             rain_data['event'] = (rain_data['is_rain'] != rain_data['is_rain'].shift()).cumsum()
@@ -240,9 +273,9 @@ class AnomalyTools:
             }).reset_index()
             rain_events.columns = ['event', 'start_time', 'end_time', 'total_rain']
             rain_events['duration'] = (rain_events['end_time'] - rain_events['start_time']).dt.total_seconds() / 3600
-            rain_events = rain_events[(rain_events['total_rain'] >= 0.25) & (rain_events['duration'] >= 6)]
+            rain_events = rain_events[(rain_events['total_rain'] >= 0.25) & (rain_events['duration'] >= 2)]
 
-            # Check for missing sensor response
+            # Check for missing sensor response with duration
             for sensor_id in data['sensor_id'].unique():
                 sensor_type = self._get_sensor_type(sensor_id)
                 if sensor_type in ['Flow', 'Depth']:
@@ -254,9 +287,15 @@ class AnomalyTools:
                         window_end = event['start_time'] + timedelta(hours=4)
                         sensor_window = sensor_data[(sensor_data['timestamp'] >= window_start) & (sensor_data['timestamp'] <= window_end)]
                         if sensor_window.empty or sensor_window['value'].max() - sensor_window['value'].min() < 0.1:
-                            missing_response.append(event)
+                            missing_response.append({
+                                'start_time': event['start_time'],
+                                'end_time': event['end_time'],
+                                'duration': event['duration'],
+                                'total_rain': event['total_rain']
+                            })
                     if missing_response:
-                        anomalies[f"{sensor_id}_missing_response"] = pd.DataFrame(missing_response)
+                        missing_response_df = pd.DataFrame(missing_response)
+                        anomalies[f"{sensor_id}_missing_response"] = missing_response_df
 
         return anomalies
 
@@ -273,22 +312,27 @@ class AnomalyTools:
         """Generate a summary of detected anomalies."""
         summary = {
             "total_anomalies": 0,
-            "by_type": {},
-            "by_sensor": {}
+            "by_type": {}
         }
         
-        # Count anomalies by type
+        # Count anomalies by type (global only)
         for anomaly_type, type_anomalies in anomalies.items():
-            type_count = sum(len(df) for df in type_anomalies.values())
-            summary["by_type"][anomaly_type] = type_count
+            type_count = 0
+            for sensor_anomaly_key, df in type_anomalies.items():
+                # Remove sensor ID and any number prefix from anomaly key for summary
+                type_label = sensor_anomaly_key
+                if '_' in type_label:
+                    parts = type_label.split('_')
+                    if len(parts) > 2:
+                        type_label = '_'.join(parts[2:])
+                    else:
+                        type_label = parts[1]
+                # By type (global)
+                if type_label not in summary["by_type"]:
+                    summary["by_type"][type_label] = 0
+                summary["by_type"][type_label] += len(df)
+                type_count += len(df)
             summary["total_anomalies"] += type_count
-            
-            # Count by sensor
-            for sensor_id, df in type_anomalies.items():
-                if sensor_id not in summary["by_sensor"]:
-                    summary["by_sensor"][sensor_id] = 0
-                summary["by_sensor"][sensor_id] += len(df)
-
         return summary
 
 # Example usage
@@ -296,15 +340,26 @@ if __name__ == "__main__":
     try:
         db_connection = mysql.connector.connect(**DB_CONFIG)
         anomaly_tool = AnomalyTools(db_connection=db_connection)
-        anomalies = anomaly_tool.detect_anomalies("SELECT * FROM sensor_data WHERE sensor_id = '13_1'")
-        print("\nAnomaly Detection Summary:")
-        print(f"Total Anomalies: {anomalies['summary']['total_anomalies']}")
-        print("\nBy Type:")
-        for type_name, count in anomalies['summary']['by_type'].items():
-            print(f"  {type_name}: {count}")
-        print("\nBy Sensor:")
-        for sensor_id, count in anomalies['summary']['by_sensor'].items():
-            print(f"  {sensor_id}: {count}")
+        query = "SELECT * FROM sensor_data WHERE sensor_id = '13_2'"
+        print(f"Executing query: {query}")
+        anomalies = anomaly_tool.detect_anomalies(query)
+
+        # Print the full anomalies output for debugging
+        print("\nFull anomalies output:")
+        print(anomalies)
+
+        # Only try to print the summary if it exists
+        if 'summary' in anomalies:
+            print("\nAnomaly Detection Summary:")
+            print(f"Total Anomalies: {anomalies['summary']['total_anomalies']}")
+            print("\nBy Type:")
+            for type_name, count in anomalies['summary']['by_type'].items():
+                print(f"  {type_name}: {count}")
+        else:
+            print("\nNo summary found in anomalies output.")
+        
         db_connection.close()
     except Exception as e:
-        pass
+        print(f"Error occurred: {str(e)}")
+        import traceback
+        traceback.print_exc()
