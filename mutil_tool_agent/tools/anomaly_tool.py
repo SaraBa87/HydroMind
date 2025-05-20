@@ -335,31 +335,31 @@ class AnomalyTools:
             summary["total_anomalies"] += type_count
         return summary
 
-# Example usage
-if __name__ == "__main__":
-    try:
-        db_connection = mysql.connector.connect(**DB_CONFIG)
-        anomaly_tool = AnomalyTools(db_connection=db_connection)
-        query = "SELECT * FROM sensor_data WHERE sensor_id = '13_2'"
-        print(f"Executing query: {query}")
-        anomalies = anomaly_tool.detect_anomalies(query)
+# # Example usage
+# if __name__ == "__main__":
+#     try:
+#         db_connection = mysql.connector.connect(**DB_CONFIG)
+#         anomaly_tool = AnomalyTools(db_connection=db_connection)
+#         query = "SELECT * FROM sensor_data WHERE sensor_id = '13_2'"
+#         print(f"Executing query: {query}")
+#         anomalies = anomaly_tool.detect_anomalies(query)
 
-        # Print the full anomalies output for debugging
-        print("\nFull anomalies output:")
-        print(anomalies)
+#         # Print the full anomalies output for debugging
+#         print("\nFull anomalies output:")
+#         print(anomalies)
 
-        # Only try to print the summary if it exists
-        if 'summary' in anomalies:
-            print("\nAnomaly Detection Summary:")
-            print(f"Total Anomalies: {anomalies['summary']['total_anomalies']}")
-            print("\nBy Type:")
-            for type_name, count in anomalies['summary']['by_type'].items():
-                print(f"  {type_name}: {count}")
-        else:
-            print("\nNo summary found in anomalies output.")
+#         # Only try to print the summary if it exists
+#         if 'summary' in anomalies:
+#             print("\nAnomaly Detection Summary:")
+#             print(f"Total Anomalies: {anomalies['summary']['total_anomalies']}")
+#             print("\nBy Type:")
+#             for type_name, count in anomalies['summary']['by_type'].items():
+#                 print(f"  {type_name}: {count}")
+#         else:
+#             print("\nNo summary found in anomalies output.")
         
-        db_connection.close()
-    except Exception as e:
-        print(f"Error occurred: {str(e)}")
-        import traceback
-        traceback.print_exc()
+#         db_connection.close()
+#     except Exception as e:
+#         print(f"Error occurred: {str(e)}")
+#         import traceback
+#         traceback.print_exc()
