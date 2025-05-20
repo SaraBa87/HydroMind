@@ -66,25 +66,25 @@ class SQLTools:
             print(f"Database error: {err}")
             return f"Error executing query: {err}"
 
-# Example usage
-if __name__ == "__main__":
-    # Create database connection
-    db = mysql.connector.connect(**DB_CONFIG)
+# # Example usage
+# if __name__ == "__main__":
+#     # Create database connection
+#     db = mysql.connector.connect(**DB_CONFIG)
     
-    # Initialize SQL tool
-    sql = SQLTools(db)
+#     # Initialize SQL tool
+#     sql = SQLTools(db)
     
-    # List all tables
-    tables = sql.list_tables()
-    print("\nAvailable tables:", tables)
+#     # List all tables
+#     tables = sql.list_tables()
+#     print("\nAvailable tables:", tables)
     
-    # Describe sensor_data table
-    columns = sql.describe_table("sensor_data")
-    print("\nTable structure for sensor_data:")
-    for col in columns:
-        print(f"- {col[0]}: {col[1]}")
+#     # Describe sensor_data table
+#     columns = sql.describe_table("sensor_data")
+#     print("\nTable structure for sensor_data:")
+#     for col in columns:
+#         print(f"- {col[0]}: {col[1]}")
     
-    # Execute a query for sensor 11_2
-    print("\nQuery Results for sensor 11_2:")
-    result = sql.execute_query("SELECT * FROM sensor_data WHERE c")
-    print(result)
+#     # Execute a query for sensor 11_2
+#     print("\nQuery Results for sensor 11_2:")
+#     result = sql.execute_query("SELECT * FROM sensor_data WHERE c")
+#     print(result)
