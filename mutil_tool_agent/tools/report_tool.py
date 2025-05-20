@@ -37,7 +37,7 @@ class ReportTools:
 
     def plot_sensor_with_anomalies(self, sensor_id: str, anomalies: Optional[dict[str, Any]] = None, save_path: Optional[str] = None):
         """
-        Plot sensor data with optional anomalies.
+        Plot sensor data with optional anomalies and rainfall data.
         
         Args:
             sensor_id: ID of the sensor
@@ -60,13 +60,38 @@ class ReportTools:
                 return
             sensor_data['timestamp'] = pd.to_datetime(sensor_data['timestamp'])
 
-            # Create the plot
-            fig, ax = plt.subplots(figsize=(15, 7))
-            ax.set_title(f'Sensor Data for {sensor_id}', fontsize=16)
+            # Get rainfall data for the same time period
+            rainfall_query = f"""
+                SELECT timestamp, value 
+                FROM sensor_data 
+                WHERE sensor_id = '15_3' 
+                AND timestamp BETWEEN '{sensor_data['timestamp'].min()}' AND '{sensor_data['timestamp'].max()}'
+            """
+            self.cursor.execute(rainfall_query)
+            rainfall_data = pd.DataFrame(self.cursor.fetchall())
+            if not rainfall_data.empty:
+                rainfall_data['timestamp'] = pd.to_datetime(rainfall_data['timestamp'])
+
+            # Create the plot with two y-axes
+            fig, ax1 = plt.subplots(figsize=(15, 7))
+            ax1.set_title(f'Sensor Data and Rainfall for {sensor_id}', fontsize=16)
             
-            # Plot sensor data
-            ax.plot(sensor_data['timestamp'], sensor_data['value'], 
-                   label='Sensor Value', color='blue', zorder=1)
+            # Plot sensor data on primary y-axis
+            ax1.plot(sensor_data['timestamp'], sensor_data['value'], 
+                    label='Sensor Value', color='red', zorder=1)
+            ax1.set_xlabel('Time')
+            ax1.set_ylabel('Sensor Value', color='red')
+            ax1.tick_params(axis='y', labelcolor='red')
+            
+            # Create secondary y-axis for rainfall
+            ax2 = ax1.twinx()
+            if not rainfall_data.empty:
+                ax2.plot(rainfall_data['timestamp'], rainfall_data['value'], 
+                        label='Rainfall', color='blue', alpha=0.7, zorder=2)
+                ax2.set_ylabel('Rainfall', color='blue')
+                ax2.tick_params(axis='y', labelcolor='blue')
+                # Invert the rainfall axis
+                ax2.invert_yaxis()
             
             # Plot anomalies if provided
             if anomalies is not None:
@@ -84,7 +109,7 @@ class ReportTools:
                         for anomaly in anomaly_list:
                             timestamp = pd.to_datetime(anomaly['timestamp'])
                             duration = pd.Timedelta(hours=anomaly['duration_hours'])
-                            ax.axvspan(timestamp, timestamp + duration, 
+                            ax1.axvspan(timestamp, timestamp + duration, 
                                      color=color, alpha=0.3, 
                                      label=f'{anomaly_type.split("_")[-1]} Anomaly')
                 
@@ -99,19 +124,17 @@ class ReportTools:
                         color = self.anomaly_colors.get(anomaly_type, 'gray')
                         
                         # Plot the anomaly
-                        ax.axvspan(start_time, end_time, 
+                        ax1.axvspan(start_time, end_time, 
                                  color=color, alpha=0.3, 
                                  label=f'{anomaly_type} Anomaly')
 
-            # Customize the plot
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Sensor Value')
-            ax.grid(True, alpha=0.3)
+            # Add grid
+            ax1.grid(True, alpha=0.3)
             
             # Add legend (avoid duplicates)
-            handles, labels = plt.gca().get_legend_handles_labels()
-            by_label = dict(zip(labels, handles))
-            ax.legend(by_label.values(), by_label.keys(), loc='upper right')
+            lines1, labels1 = ax1.get_legend_handles_labels()
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
             
             # Rotate x-axis labels for better readability
             plt.xticks(rotation=45)
@@ -167,18 +190,18 @@ class ReportTools:
             
             # Plot sensor data on primary y-axis
             ax1.plot(sensor_data['timestamp'], sensor_data['value'], 
-                    label='Sensor Value', color='blue', zorder=1)
+                    label='Sensor Value', color='red', zorder=1)
             ax1.set_xlabel('Time')
-            ax1.set_ylabel('Sensor Value', color='blue')
-            ax1.tick_params(axis='y', labelcolor='blue')
+            ax1.set_ylabel('Sensor Value', color='red')
+            ax1.tick_params(axis='y', labelcolor='red')
             
             # Create secondary y-axis for rainfall
             ax2 = ax1.twinx()
             if not rainfall_data.empty:
                 ax2.plot(rainfall_data['timestamp'], rainfall_data['value'], 
-                        label='Rainfall', color='green', alpha=0.7, zorder=2)
-                ax2.set_ylabel('Rainfall', color='green')
-                ax2.tick_params(axis='y', labelcolor='green')
+                        label='Rainfall', color='blue', alpha=0.7, zorder=2)
+                ax2.set_ylabel('Rainfall', color='blue')
+                ax2.tick_params(axis='y', labelcolor='blue')
                 # Invert the rainfall axis
                 ax2.invert_yaxis()
             
