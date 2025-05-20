@@ -2,162 +2,89 @@ from typing import List, Tuple
 import mysql.connector
 from tabulate import tabulate
 from datetime import datetime
+import sys
+import os
+
+# Add the parent directory to Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from mutil_tool_agent.config.db_config import DB_CONFIG
 
 class SQLTools:
-    def __init__(self):
-        self.db = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="95412313@Sara",
-            database="hydro_db"
-        )
+    def __init__(self, db_connection: mysql.connector.MySQLConnection):
+        self.db = db_connection
         self.cursor = self.db.cursor()
 
-    def close(self):
-        """Explicitly close database connection"""
-        if hasattr(self, 'cursor') and self.cursor:
-            self.cursor.close()
-        if hasattr(self, 'db') and self.db:
-            self.db.close()
-
-    def list_tables(self) -> List[str]:
+    def list_tables(self) -> list[str]:
         """Retrieve the names of all tables in the database."""
         print(' - DB CALL: list_tables()')
-        self.cursor.execute("SHOW TABLES")
-        return [table[0] for table in self.cursor.fetchall()]
+        try:
+            self.cursor.execute("SHOW TABLES")
+            tables = self.cursor.fetchall()
+            return [table[0] for table in tables]
+        except mysql.connector.Error as err:
+            print(f"Database error: {err}")
+            return []
 
-    def describe_table(self, table_name: str) -> List[Tuple[str, str]]:
-        """
-        Look up the table schema in MySQL database.
-        
-        Args:
-            table_name: Name of the table to describe
-            
-        Returns:
-            List of columns, where each entry is a tuple of (column, type)
-        """
+    def describe_table(self, table_name: str) -> list[tuple]:
+        """Look up the table schema in MySQL database."""
         print(f' - DB CALL: describe_table({table_name})')
-        self.cursor.execute(f"DESCRIBE {table_name}")
-        columns = self.cursor.fetchall()
-        return [(col[0], col[1]) for col in columns]
+        try:
+            self.cursor.execute(f"DESCRIBE {table_name}")
+            return self.cursor.fetchall()
+        except mysql.connector.Error as err:
+            print(f"Database error: {err}")
+            return []
 
-    def execute_query(self, sql: str) -> List[List]:
-        """
-        Execute an SQL statement, returning the results.
-        
-        Args:
-            sql: SQL query to execute
-            
-        Returns:
-            List of rows, where each row is a list of values
-        """
+    def execute_query(self, sql: str) -> str:
+        """Execute an SQL statement and return formatted results."""
         print(f' - DB CALL: execute_query({sql})')
         try:
             self.cursor.execute(sql)
             results = self.cursor.fetchall()
-            
-            # Convert datetime objects to strings
-            serialized_results = []
-            for row in results:
-                serialized_row = []
-                for value in row:
-                    if isinstance(value, datetime):
-                        serialized_row.append(value.isoformat())
-                    else:
-                        serialized_row.append(value)
-                serialized_results.append(serialized_row)
-            
-            return serialized_results
-        except mysql.connector.Error as err:
-            print(f"Error executing query: {err}")
-            return []
-
-    def print_query_results(self, sql: str):
-        """
-        Execute a query and print results in a nicely formatted table.
-        
-        Args:
-            sql: SQL query to execute
-        """
-        print(f' - DB CALL: print_query_results({sql})')
-        try:
-            self.cursor.execute(sql)
-            results = self.cursor.fetchall()
-            
-            if not results:
-                print("No results found.")
-                return
-                
-            # Get column names
             column_names = [desc[0] for desc in self.cursor.description]
             
-            # Convert datetime objects to strings for display
-            serialized_results = []
+            if not results:
+                return "No results found."
+            
+            # Convert datetime objects to strings and format results
+            formatted_results = []
             for row in results:
-                serialized_row = []
+                formatted_row = []
                 for value in row:
                     if isinstance(value, datetime):
-                        serialized_row.append(value.isoformat())
+                        formatted_row.append(value.isoformat())
                     else:
-                        serialized_row.append(value)
-                serialized_results.append(serialized_row)
+                        formatted_row.append(str(value))
+                formatted_results.append(formatted_row)
             
-            # Print results using tabulate
-            print("\nQuery Results:")
-            print(tabulate(serialized_results, headers=column_names, tablefmt="grid"))
+            # Create and return formatted table with a header
+            table = tabulate(formatted_results, headers=column_names, tablefmt="grid")
+            return f"\n{table}\n"
             
         except mysql.connector.Error as err:
-            print(f"Error executing query: {err}")
+            print(f"Database error: {err}")
+            return f"Error executing query: {err}"
 
-    # def get_sensor_data(self, location_name: str, sensor_type: str, start_time: str = None, end_time: str = None) -> List[List]:
-    #     """
-    #     Get sensor data for a specific location and sensor type.
-        
-    #     Args:
-    #         location_name: Name of the location
-    #         sensor_type: Type of sensor
-    #         start_time: Optional start time filter
-    #         end_time: Optional end time filter
-            
-    #     Returns:
-    #         List of sensor data rows
-    #     """
-    #     print(f' - DB CALL: get_sensor_data({location_name}, {sensor_type})')
-        
-    #     query = """
-    #     SELECT sd.timestamp, sd.value, s.unit
-    #     FROM sensor_data sd
-    #     JOIN locations l ON sd.location_id = l.location_id
-    #     JOIN sensors s ON sd.sensor_id = s.sensor_id
-    #     WHERE l.location_name = %s AND s.sensor_type = %s
-    #     """
-    #     params = [location_name, sensor_type]
-        
-    #     if start_time:
-    #         query += " AND sd.timestamp >= %s"
-    #         params.append(start_time)
-    #     if end_time:
-    #         query += " AND sd.timestamp <= %s"
-    #         params.append(end_time)
-            
-    #     query += " ORDER BY sd.timestamp"
-        
-    #     self.cursor.execute(query, params)
-    #     return self.cursor.fetchall()
-
-# db = SQLTools()
-
-# # List all tables
-# tables = db.list_tables()
-# print("Tables:", tables)
-
-# # Get table structure
-# columns = db.describe_table("sensor_data")
-# for column_name, column_type in columns:
-#     print(f"{column_name}: {column_type}")
-
-# # Execute a query
-# results = db.execute_query("SELECT * FROM sensor_data LIMIT 5")
-
-# # Print query results
-# db.print_query_results("SELECT * FROM sensor_data WHERE sensor_id = '11_1' AND timestamp BETWEEN '2025-05-02 00:00:00' AND '2025-05-02 04:00:00'")
+# Example usage
+if __name__ == "__main__":
+    # Create database connection
+    db = mysql.connector.connect(**DB_CONFIG)
+    
+    # Initialize SQL tool
+    sql = SQLTools(db)
+    
+    # List all tables
+    tables = sql.list_tables()
+    print("\nAvailable tables:", tables)
+    
+    # Describe sensor_data table
+    columns = sql.describe_table("sensor_data")
+    print("\nTable structure for sensor_data:")
+    for col in columns:
+        print(f"- {col[0]}: {col[1]}")
+    
+    # Execute a query for sensor 11_2
+    print("\nQuery Results for sensor 11_2:")
+    result = sql.execute_query("SELECT * FROM sensor_data WHERE c")
+    print(result)
