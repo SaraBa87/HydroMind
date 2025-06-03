@@ -1,8 +1,8 @@
 import mysql.connector
 import pandas as pd
 from datetime import datetime
-from weather_data import fetch_weather_data
-from station_data import fetch_station_data, STATIONS
+from database.data_dl.weather_data import fetch_weather_data
+from database.data_dl.station_data import fetch_station_data, STATIONS
 
 # Database connection
 db = mysql.connector.connect(
@@ -45,20 +45,20 @@ sensor_mapping = {
     }
 }
 
-def cleanup_sensor_data():
-    print("Cleaning up sensor_data table...")
-    try:
-        cursor.execute("TRUNCATE TABLE sensor_data")
-        db.commit()
-        print("Successfully cleaned up sensor_data table")
-    except Exception as e:
-        print(f"Error cleaning up sensor_data table: {str(e)}")
-        db.rollback()
+# def cleanup_sensor_data():
+#     print("Cleaning up sensor_data table...")
+#     try:
+#         cursor.execute("TRUNCATE TABLE sensor_data")
+#         db.commit()
+#         print("Successfully cleaned up sensor_data table")
+#     except Exception as e:
+#         print(f"Error cleaning up sensor_data table: {str(e)}")
+#         db.rollback()
 
 def load_flow_data():
     print("Loading flow data...")
-    start_date = datetime(2025, 5, 2)
-    end_date = datetime(2025, 5, 9)
+    start_date = datetime(2025, 5, 15)
+    end_date = datetime(2025, 5, 22)
     
     for station_id in STATIONS.keys():
         try:
@@ -88,8 +88,8 @@ def load_flow_data():
 
 def load_depth_data():
     print("\nLoading depth data...")
-    start_date = datetime(2025, 5, 2)
-    end_date = datetime(2025, 5, 9)
+    start_date = datetime(2025, 5, 15)
+    end_date = datetime(2025, 5, 22)
     
     for station_id in STATIONS.keys():
         try:
@@ -147,7 +147,7 @@ def load_weather_data():
 
 # Execute the loading functions
 try:
-    cleanup_sensor_data()
+    # cleanup_sensor_data()
     load_flow_data()
     load_depth_data()
     load_weather_data()

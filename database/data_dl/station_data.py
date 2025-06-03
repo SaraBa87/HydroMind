@@ -103,8 +103,8 @@ def save_station_data(df, station_id, station_name, data_type, save_csv=True, sa
 
 if __name__ == "__main__":
     # Example usage
-    start_date = datetime(2025, 5, 2)
-    end_date = datetime(2025, 5, 9)
+    start_date = datetime(2025, 5, 15)
+    end_date = datetime(2025, 5, 22)
     
     for station_id, station_name in STATIONS.items():
         print(f"\nProcessing {station_name} (Station ID: {station_id})")

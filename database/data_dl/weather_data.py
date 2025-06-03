@@ -16,9 +16,9 @@ def fetch_weather_data(start_date=None, end_date=None):
         pandas.DataFrame: Weather data with 15-minute intervals in local time
     """
     if start_date is None:
-        start_date = datetime(2025, 5, 2)
+        start_date = datetime(2025, 5, 15)
     if end_date is None:
-        end_date = datetime(2025, 5, 8)
+        end_date = datetime(2025, 5, 22)
     
     # Add 37 hours to compensate for the delay between rain and flow
     start_date = start_date + timedelta(hours=37)
