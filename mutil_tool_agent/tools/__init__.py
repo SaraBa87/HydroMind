@@ -8,8 +8,14 @@ from .sql_tool import (
     get_database_settings
 )
 
+# Import standalone functions from anomaly_tool
+from .anomaly_tool import (
+    detect_anomalies_standalone,
+    display_anomaly_summary_standalone,
+    display_anomaly_table_standalone
+)
+
 # Import classes from other tools
-from .anomaly_tool import AnomalyTools
 from .report_tool import ReportTools
 
 __all__ = [
@@ -19,6 +25,8 @@ __all__ = [
     'display_results_summary',
     'get_mysql_schema',
     'get_database_settings',
-    'AnomalyTools', 
+    'detect_anomalies_standalone',
+    'display_anomaly_summary_standalone',
+    'display_anomaly_table_standalone',
     'ReportTools'
 ] 
