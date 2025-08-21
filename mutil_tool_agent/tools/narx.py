@@ -4,28 +4,22 @@ Author: [Your Name]
 Description: Predicts river flow using rainfall and past flow data with a PyTorch-based NARX model.
 """
 
-import mysql.connector
 import pandas as pd
 import numpy as np
+import sys
+import os
 from matplotlib import pyplot as plt
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import TensorDataset, DataLoader
 
-
-def get_db_connection():
-    """Establish and return a MySQL database connection."""
-    return mysql.connector.connect(
-        host='localhost',
-        user='root',
-        password='95412313@Sara',
-        database='hydro_db'
-    )
+# Add the parent directory to Python path to make mutil_tool_agent importable
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from mutil_tool_agent.tools.sql_tool import (
+    get_mysql_client,
+)
 
 def fetch_sensor_data(conn, sensor_id, start, end):
     """Fetch sensor data from the database for a given sensor_id and time range."""
@@ -194,7 +188,7 @@ def evaluate_model(model, X_test_tensor, y_test, y_scaler):
 def main():
     """Main function to run the NARX model pipeline."""
     # Step 1: Connect to MySQL
-    conn = get_db_connection()
+    conn = get_mysql_client()
     # Step 2: Query the flow and rain data
     df_flow = fetch_sensor_data(conn, '13_1', '2025-05-17 00:00:00', '2025-05-22 23:59:59')
     df_rain = fetch_sensor_data(conn, '15_3', '2025-05-17 00:00:00', '2025-05-22 23:59:59')

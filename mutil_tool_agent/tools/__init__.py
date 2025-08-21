@@ -16,9 +16,6 @@ from .anomaly_tool import (
     retrive_info_from_doc
 )
 
-# Import classes from other tools
-from .report_tool import ReportTools
-
 __all__ = [
     'initial_mysql_nl2sql',
     'run_mysql_validation', 
