@@ -242,16 +242,3 @@ def display_results_summary(final_result: Dict[str, Any]) -> str:
         summary_lines.append(f"  {col}: {dtype}")
 
     return "\n".join(summary_lines)
-
-
-
-# initial_mysql_nl2sql("What is the max depth of the sensor 11_2?")
-# result = run_mysql_validation("SELECT * FROM hydro_db.sensor_data where sensor_id = '11_2' limit 5")
-# print("\n" + "="*50)
-# print("MYSQL RESULTS SUMMARY:")
-# print("="*50)
-# print(display_results_summary(result))
-# print("\n" + "="*50)
-# print("MYSQL RESULTS TABLE (Key Columns):")
-# print("="*50)
-# print(display_results_as_table(result, ['location_id', 'sensor_id', 'value', 'timestamp']))

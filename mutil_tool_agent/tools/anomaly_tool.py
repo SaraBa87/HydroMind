@@ -323,33 +323,3 @@ def retrive_info_from_doc(query: str) -> list:
     retrived_chunks = [chunks[i] for i in indices[0]]
 
     return retrived_chunks
-# if __name__ == "__main__":
-#     print("=== Testing Anomaly Detection with 1000 records ===")
-    
-#     # Test with a larger dataset
-#     query = "SELECT * FROM sensor_data WHERE sensor_id = '13_2' LIMIT 1000"
-#     print(f"Running anomaly detection with query: {query}")
-    
-#     anomaly_tool = AnomalyTools()
-#     result = anomaly_tool.detect_anomalies(query)
-    
-#     print("\n=== ANOMALY DETECTION RESULTS ===")
-    
-#     if "error" in result:
-#         print(f"Error: {result['error']}")
-#     else:
-#         # Display the formatted summary table
-#         summary_result = result.get('summary', {})
-        
-#         print("\n" + "="*50)
-#         print("ANOMALY SUMMARY TABLE")
-#         print("="*50)
-#         print(AnomalyTools.display_anomaly_summary(summary_result))
-        
-#         print("\n" + "="*50)
-#         print("DETAILED ANOMALY TABLE")
-#         print("="*50)
-#         print(AnomalyTools.display_anomaly_table(summary_result, ['sensor_id', 'start_time', 'value', 'anomaly_type']))
-    
-#     print("\n=== TEST COMPLETED ===")
-# retrive_info_from_doc("do anomaly detection for sensor 13_2")
