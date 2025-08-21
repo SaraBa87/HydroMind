@@ -10,24 +10,9 @@ from mutil_tool_agent.tools.sql_tool import (
 from mutil_tool_agent.tools.anomaly_tool import (
     detect_anomalies_standalone,
     display_anomaly_summary_standalone,
-    display_anomaly_table_standalone
+    display_anomaly_table_standalone,
+    retrive_info_from_doc
 )
-# from mutil_tool_agent.tools.report_tool import ReportTools
-# import mysql.connector
-
-# # Initialize database connection
-# db_connection = mysql.connector.connect(
-#     host=get_env_var("MYSQL_HOST"),
-#     user=get_env_var("MYSQL_USER"),
-#     password=get_env_var("MYSQL_PASSWORD"),
-#     database=get_env_var("MYSQL_DATABASE"),
-# )
-
-# # Initialize anomaly detection tool
-# anomaly_tool = AnomalyTools(db_connection=db_connection)
-
-# # Initialize report generation tool
-# report_tool = ReportTools(db_connection=db_connection)
 
 def return_instructions_anomaly_detection() -> str:
     
@@ -49,11 +34,15 @@ def return_instructions_anomaly_detection() -> str:
       "Additional information and recommendations:
       - The sensor data is not consistent with the sensor type.
       ```
+      You should use the retrive_info_from_doc tool to retrive information from the anomaly detection document and provide infromation about the sensor types at the top of the summary and table. 
+      IMPORTANT: You should show all reslut including sensor types explanation, summary and table, additional information and recommendations all together not seperately.
+      IMPORTANT: You should show the final report in a structured way, with a clear title, sensor explanation, summary, table, and recommendations.
       You should pass one tool call to another tool call as needed!
 
       NOTE: You should not ask user to provide data, you can get data from the database using the sql query provided inside the AnomalyDetectionInput.
 
     """
+    
     return instruction_prompt_anomaly_detection_v1
 
 
@@ -63,7 +52,7 @@ anomaly_detection_agent = Agent(
     model="gemini-2.0-flash",
     description="Anomaly detection agent for MySQL database.",
     instruction=return_instructions_anomaly_detection(),
-    tools=[detect_anomalies_standalone],
+    tools=[detect_anomalies_standalone, retrive_info_from_doc],
 )
 
 def return_instructions_mysql() -> str:

@@ -12,7 +12,8 @@ from .sql_tool import (
 from .anomaly_tool import (
     detect_anomalies_standalone,
     display_anomaly_summary_standalone,
-    display_anomaly_table_standalone
+    display_anomaly_table_standalone,
+    retrive_info_from_doc
 )
 
 # Import classes from other tools
@@ -28,5 +29,5 @@ __all__ = [
     'detect_anomalies_standalone',
     'display_anomaly_summary_standalone',
     'display_anomaly_table_standalone',
-    'ReportTools'
+    'retrive_info_from_doc'
 ] 

@@ -3,6 +3,8 @@
 import sys
 import os
 from pathlib import Path
+from sklearn.feature_extraction.text import TfidfVectorizer
+
 
 # Add the parent directory to Python path to make mutil_tool_agent importable
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -20,6 +22,8 @@ from mutil_tool_agent.tools.sql_tool import (
     get_mysql_client,
     run_mysql_validation,
 )
+import faiss
+
 
 class AnomalyTools:
     def __init__(self,
@@ -289,6 +293,38 @@ def display_anomaly_table_standalone(summary_result: Dict[str, Any], relevant_co
     """
     return AnomalyTools.display_anomaly_table(summary_result, relevant_columns)
 
+def retrive_info_from_doc(query: str) -> list:
+    """
+    Retrieve sensor-specific information from the Kansas City sensor document using TF-IDF + FAISS.
+    """
+    # Load document with proper encoding
+    document_path = 'C:/Users/Sara/Documents/GenAI/HydroMind/mutil_tool_agent/sensors_document.txt'
+    with open(document_path, 'r', encoding='utf-8') as file:
+        content = file.read()
+    
+    # Split document by sensor entries (using regex to match IDs like 13_2, 12_2)
+    import re
+    chunks = re.split(r'\n(?=\d+_\d+ – )', content)  # splits at lines starting with "number_number – "
+    chunks = [chunk.strip() for chunk in chunks if chunk.strip()]
+
+    # TF-IDF vectorizer
+    vectorizer = TfidfVectorizer()
+    doc_vectors = vectorizer.fit_transform(chunks).toarray().astype('float32')
+
+    # FAISS index
+    index = faiss.IndexFlatIP(doc_vectors.shape[1])
+    index.add(doc_vectors)
+
+    # Encode query
+    query_vector = vectorizer.transform([query]).toarray().astype('float32')
+
+    # Retrieve top-k similar chunks
+    k = min(2, len(chunks))
+    distances, indices = index.search(query_vector, k)
+
+    retrived_chunks = [chunks[i] for i in indices[0]]
+
+    return retrived_chunks
 # if __name__ == "__main__":
 #     print("=== Testing Anomaly Detection with 1000 records ===")
     
@@ -318,3 +354,4 @@ def display_anomaly_table_standalone(summary_result: Dict[str, Any], relevant_co
 #         print(AnomalyTools.display_anomaly_table(summary_result, ['sensor_id', 'start_time', 'value', 'anomaly_type']))
     
 #     print("\n=== TEST COMPLETED ===")
+# retrive_info_from_doc("do anomaly detection for sensor 13_2")
