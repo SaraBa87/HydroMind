@@ -1,0 +1,23 @@
+Kansas City Sensor Network – Documentation Overview
+
+The Kansas City sensor network consists of strategically placed hydrological and meteorological monitoring instruments. These sensors collect real-time data on streamflow, water depth, and rainfall across the Blue River, Brush Creek, and the Missouri River, as well as at a local weather station.
+The system enables flood forecasting, water resource planning, capacity analysis, and environmental monitoring. There are five locations at this network which has different sensors.
+
+Sensor Locations and Descriptions
+1. Blue River (Location ID: 11). This location has two sensors: 
+- Flow Sensor (id = 11_1): {Parameter: River discharge (m³/s), Max Recorded Range: ~566 m³/s, Purpose & Use: Quantifies the amount of water flowing through the Blue River. Provides critical data for flood forecasting—high flow rates can indicate flood potential downstream. Useful for infrastructure design and assessment, ensuring stormwater systems can handle extreme flows}
+- Depth Sensor (id = 11_2): {Parameter: Water depth (m), Max Recorded Range: ~7.6 m, Purpose & Use:Tracks river stage (height of water surface above a fixed point). Depth data complements flow measurements—together they describe the hydraulic profile of the river. Supports calibration of hydraulic models and verification of flow predictions.}
+
+2. Brush Creek at Rockhill Road (Location ID: 12). This location one sensor:
+- Depth Sensor (id = 12_2): {Parameter: Water depth (m), Max Recorded Range: ~5 m, Purpose & Use: Monitors creek levels in an urban watershed, where rapid rises can occur during storms. Depth readings are valuable for flash flood monitoring and local flood warning systems. Helps engineers assess whether culverts and stormwater conveyance systems are adequate.}
+
+3. Brush Creek at Ward Parkway (Location ID: 13). This location has two sensors: 
+- Flow Sensor (id 13_1): {Parameter: Flow (m³/s), Max Recorded Range: ~200 m³/s, Purpose & Use: Measures discharge further downstream on Brush Creek, capturing cumulative flow contributions from the watershed. Important for urban flood management since Brush Creek flows through developed areas prone to flooding.}
+- Depth Sensor (id = 13_2): {Parameter: Water depth (m), Max Recorded Range: ~12 m, Purpose & Use: Provides creek stage measurements to complement flow data. Depth records at Ward Parkway are historically important due to past flood events, serving as a benchmark for risk assessment.}
+
+4. Missouri River (Location ID: 14): This location has two sensors:
+- Flow Sensor (id = 14_1): {Parameter: Flow (m³/s), Max Recorded Range: ~2,800 m³/s, Purpose & Use: Monitors one of the largest rivers in the U.S. as it passes through Kansas City. Flow data is essential for regional water balance calculations and navigation safety. Provides upstream/downstream conditions affecting tributary backflow (e.g., how Missouri River levels influence Blue River).}
+- Depth Sensor (id = 14_2): {Parameter: Water depth (m), Max Recorded Range: ~10 m, Purpose & Use: Tracks river stage, which directly impacts floodplain management. Depth changes at this location are critical for predicting backwater effects on smaller tributaries.}
+
+5. Weather Station (Location ID: 15). This location has one sensor:
+- Rain Gauge (id =15_3): {Parameter: Precipitation (mm/day), Max Recorded Range: ~250 mm/day, Purpose & Use: Measures rainfall intensity and accumulation, a key driver of flow and depth changes in streams and rivers. Provides real-time data for hydrological forecasting models. Long-term records support climate trend analysis (e.g., frequency of extreme rainfall events)}
